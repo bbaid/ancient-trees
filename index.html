@@ -1,0 +1,486 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Venerable Trees of Bulgaria</title>
+<link href="https://api.mapbox.com/mapbox-gl-js/v3.8.0/mapbox-gl.css" rel="stylesheet">
+<script src="https://api.mapbox.com/mapbox-gl-js/v3.8.0/mapbox-gl.js"></script>
+<script src="config.js"></script>
+<style>
+  :root {
+    --bg: #fbfaf7; --panel: #ffffff; --ink: #1f2a24; --muted: #6b756f;
+    --line: #e3e1da; --accent: #2f7d4f;
+  }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; margin: 0; }
+  body {
+    font: 14px/1.45 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    color: var(--ink); background: var(--bg);
+    display: grid; grid-template-columns: 340px 1fr;
+  }
+  #panel {
+    background: var(--panel); border-right: 1px solid var(--line);
+    display: flex; flex-direction: column; min-height: 0; height: 100vh;
+  }
+  header { padding: 18px 18px 12px; border-bottom: 1px solid var(--line); position: relative; }
+  #lang { position: absolute; top: 16px; right: 18px; display: flex; border: 1px solid var(--line);
+    border-radius: 7px; overflow: hidden; }
+  #lang button { font: inherit; font-size: 11.5px; font-weight: 600; border: 0; background: none;
+    padding: 3px 8px; cursor: pointer; color: var(--muted); }
+  #lang button[aria-pressed=true] { background: var(--ink); color: #fff; }
+  h1 { padding-right: 76px; }
+  h1 { font-size: 19px; margin: 0 0 2px; letter-spacing: -0.01em; }
+  header p { margin: 0; color: var(--muted); font-size: 12.5px; }
+  .filters { padding: 14px 18px; border-bottom: 1px solid var(--line); display: grid; gap: 12px; }
+  label.field { display: grid; gap: 4px; font-size: 11px; font-weight: 600; color: var(--muted);
+    text-transform: uppercase; letter-spacing: 0.05em; }
+  input[type=search], select {
+    font: inherit; color: var(--ink); width: 100%; padding: 7px 9px;
+    border: 1px solid var(--line); border-radius: 7px; background: #fff;
+  }
+  input[type=range] { width: 100%; accent-color: var(--accent); margin: 0; }
+  .field output { float: right; color: var(--ink); text-transform: none; letter-spacing: 0; }
+  .chips { display: flex; flex-wrap: wrap; gap: 6px; }
+  .chip {
+    font: inherit; font-size: 12.5px; cursor: pointer; padding: 3px 9px 3px 7px;
+    border: 1px solid var(--line); border-radius: 999px; background: #fff; color: var(--ink);
+    display: inline-flex; align-items: center; gap: 6px;
+  }
+  .chip i { width: 10px; height: 10px; border-radius: 50%; background: var(--c); }
+  .chip small { color: var(--muted); }
+  .chip[aria-pressed=false] { opacity: 0.45; }
+  .chip[aria-pressed=false] i { background: transparent; box-shadow: inset 0 0 0 2px var(--c); }
+  .summary { padding: 10px 18px; display: flex; justify-content: space-between; align-items: center;
+    font-size: 12.5px; color: var(--muted); border-bottom: 1px solid var(--line); }
+  .summary b { color: var(--ink); }
+  .link { font: inherit; font-size: 12.5px; color: var(--accent); background: none; border: 0;
+    padding: 0; cursor: pointer; }
+  .link:hover { text-decoration: underline; }
+  #list { list-style: none; margin: 0; padding: 0; overflow-y: auto; flex: 1; }
+  #list li { padding: 9px 18px; border-bottom: 1px solid var(--line); cursor: pointer;
+    display: grid; grid-template-columns: 10px 1fr auto; gap: 10px; align-items: baseline; }
+  #list li:hover { background: #f4f2ec; }
+  #list i { width: 10px; height: 10px; border-radius: 50%; background: var(--c); }
+  #list .sp { font-weight: 600; }
+  #list .pl { color: var(--muted); font-size: 12.5px; }
+  #list .age { font-variant-numeric: tabular-nums; color: var(--muted); font-size: 12.5px; white-space: nowrap; }
+  #list .empty { cursor: default; color: var(--muted); display: block; }
+  footer { padding: 8px 18px; font-size: 11.5px; color: var(--muted); border-top: 1px solid var(--line); }
+
+  #map { height: 100vh; min-width: 0; }
+  #basemap { position: absolute; top: 10px; right: 50px; z-index: 2; display: flex;
+    background: #fff; border-radius: 7px; box-shadow: 0 0 0 2px rgba(0,0,0,.1); overflow: hidden; }
+  #basemap button { font: inherit; font-size: 12.5px; border: 0; background: none; padding: 6px 10px; cursor: pointer; }
+  #basemap button[aria-pressed=true] { background: var(--ink); color: #fff; }
+  #sizekey { position: absolute; bottom: 28px; right: 10px; z-index: 2; background: rgba(255,255,255,.92);
+    border-radius: 7px; padding: 8px 10px; font-size: 11.5px; color: var(--muted);
+    display: flex; align-items: center; gap: 10px; box-shadow: 0 0 0 1px rgba(0,0,0,.08); }
+  #sizekey span { display: inline-flex; align-items: center; gap: 4px; }
+  #sizekey i { display: inline-block; border-radius: 50%; background: #9aa39d; }
+
+  .mapboxgl-popup-content { padding: 14px 16px; border-radius: 10px; font: inherit; color: var(--ink); }
+  .pop h2 { font-size: 15px; margin: 0 18px 2px 0; }
+  .pop .where { color: var(--muted); font-size: 12.5px; margin-bottom: 8px; }
+  .pop dl { display: grid; grid-template-columns: auto 1fr; gap: 3px 12px; margin: 0; font-size: 12.5px; }
+  .pop dt { color: var(--muted); }
+  .pop dd { margin: 0; }
+  .pop .tag { display: inline-block; font-size: 11px; padding: 1px 7px; border-radius: 999px;
+    color: #fff; background: var(--c); margin-bottom: 6px; }
+  .tip .mapboxgl-popup-content { padding: 5px 9px; font-size: 12.5px; pointer-events: none; }
+
+  #token { position: fixed; inset: 0; z-index: 10; background: rgba(31,42,36,.55);
+    display: none; place-items: center; }
+  #token form { background: #fff; padding: 22px; border-radius: 12px; width: min(440px, 90vw); display: grid; gap: 10px; }
+  #token h2 { margin: 0; font-size: 17px; }
+  #token p { margin: 0; color: var(--muted); font-size: 13px; }
+  #token input { font: inherit; padding: 8px 10px; border: 1px solid var(--line); border-radius: 7px; }
+  #token button { font: inherit; padding: 8px 12px; border: 0; border-radius: 7px; background: var(--accent);
+    color: #fff; cursor: pointer; justify-self: start; }
+  #token .err { color: #b23a2e; }
+
+  @media (max-width: 760px) {
+    body { grid-template-columns: 1fr; grid-template-rows: 55vh auto; }
+    #map { height: 55vh; grid-row: 1; }
+    #panel { height: auto; border-right: 0; }
+    #list { max-height: 50vh; }
+  }
+</style>
+</head>
+<body>
+<aside id="panel">
+  <header>
+    <div id="lang" role="group" aria-label="Language">
+      <button data-lang="en" aria-pressed="true">EN</button>
+      <button data-lang="bg" aria-pressed="false">БГ</button>
+    </div>
+    <h1 data-i18n="title"></h1>
+    <p data-i18n="subtitle"></p>
+  </header>
+  <div class="filters">
+    <label class="field"><span data-i18n="search"></span>
+      <input id="q" type="search" data-i18n-placeholder="searchHint" autocomplete="off">
+    </label>
+    <div class="field" role="group">
+      <div class="chips" id="chips"></div>
+    </div>
+    <label class="field"><span data-i18n="province"></span>
+      <select id="province"><option value="" data-i18n="allProvinces"></option></select>
+    </label>
+    <label class="field"><span><span data-i18n="minAge"></span> <output id="ageOut"></output></span>
+      <input id="age" type="range" min="0" max="800" step="50" value="0">
+    </label>
+  </div>
+  <div class="summary">
+    <span id="count"></span>
+    <span><button class="link" id="fit" data-i18n="fit"></button> · <button class="link" id="reset" data-i18n="reset"></button></span>
+  </div>
+  <ul id="list"></ul>
+  <footer id="foot"></footer>
+</aside>
+<main id="map">
+  <div id="basemap">
+    <button data-style="light-v11" aria-pressed="true" data-i18n="light"></button>
+    <button data-style="outdoors-v12" aria-pressed="false" data-i18n="terrain"></button>
+    <button data-style="satellite-streets-v12" aria-pressed="false" data-i18n="satellite"></button>
+  </div>
+  <div id="sizekey"><span data-i18n="age"></span>
+    <span><i style="width:8px;height:8px"></i>100</span>
+    <span><i style="width:14px;height:14px"></i>300</span>
+    <span><i style="width:22px;height:22px"></i>600</span>
+    <span><i style="width:34px;height:34px"></i>1200 <span data-i18n="yrs"></span></span>
+  </div>
+</main>
+
+<div id="token">
+  <form>
+    <h2 data-i18n="tokenTitle"></h2>
+    <p data-i18n-html="tokenBody"></p>
+    <p class="err" id="tokenErr"></p>
+    <input id="tokenInput" placeholder="pk.…" autocomplete="off" spellcheck="false" required>
+    <button data-i18n="tokenLoad"></button>
+  </form>
+</div>
+
+<script>
+const GROUPS = {
+  oak:     { color: '#2f7d4f' },
+  plane:   { color: '#c2571a' },
+  conifer: { color: '#1b6f8f' },
+  ash:     { color: '#d9a400' },
+  fruit:   { color: '#b23a2e' },
+  beech:   { color: '#8e5bb5' },
+  poplar:  { color: '#5aa9e6' },
+  elm:     { color: '#d1477a' },
+  other:   { color: '#7a7a7a' },
+};
+const TOKEN_URL = 'https://console.mapbox.com/account/access-tokens/';
+const I18N = {
+  en: {
+    title: 'Venerable Trees of Bulgaria',
+    subtitle: 'Protected centuries-old trees from the national register',
+    search: 'Search', searchHint: 'Species, town, municipality…',
+    province: 'Province', allProvinces: 'All provinces',
+    minAge: 'Minimum age', anyAge: 'any', agePlus: '{n}+ years',
+    count: '{shown} of {total} records', fit: 'Zoom to results', reset: 'Reset',
+    noMatch: 'No trees match these filters.',
+    listLimit: 'Showing the {n} oldest. Narrow the filters to see more.',
+    skipped: '{n} register entries have no coordinates and are not shown.',
+    loadError: 'Could not load data/trees.geojson. Serve this folder over HTTP and run build_data.py first.',
+    light: 'Light', terrain: 'Terrain', satellite: 'Satellite',
+    age: 'Age', yrs: 'yrs', years: 'years', m: 'm',
+    height: 'Height', girth: 'Girth', diameter: 'Diameter', trees: 'Trees', notes: 'Notes',
+    decree: 'Protected by', gazette: 'State Gazette', regNo: 'Register №',
+    g_oak: 'Oaks', g_plane: 'Planes', g_conifer: 'Conifers', g_ash: 'Ashes', g_fruit: 'Fruit & nut',
+    g_beech: 'Beeches', g_poplar: 'Poplars & willows', g_elm: 'Elms', g_other: 'Other',
+    tokenTitle: 'Mapbox access token needed',
+    tokenBody: `Paste a public token (starts with <code>pk.</code>) from <a href="${TOKEN_URL}" target="_blank" rel="noopener">your Mapbox account</a>. It is saved in this browser only. You can also set it in <code>config.js</code>.`,
+    tokenLoad: 'Load map', tokenRejected: 'Mapbox rejected that token. Check it and try again.',
+  },
+  bg: {
+    title: 'Вековни дървета в България',
+    subtitle: 'Защитени вековни дървета от националния регистър',
+    search: 'Търсене', searchHint: 'Вид, населено място, община…',
+    province: 'Област', allProvinces: 'Всички области',
+    minAge: 'Минимална възраст', anyAge: 'без ограничение', agePlus: '{n}+ години',
+    count: '{shown} от {total} записа', fit: 'Покажи резултатите', reset: 'Изчисти',
+    noMatch: 'Няма дървета, отговарящи на тези филтри.',
+    listLimit: 'Показани са {n}-те най-стари. Стеснете филтрите, за да видите още.',
+    skipped: '{n} записа от регистъра нямат координати и не са показани.',
+    loadError: 'Файлът data/trees.geojson не може да бъде зареден. Отворете папката през HTTP сървър и първо изпълнете build_data.py.',
+    light: 'Светла', terrain: 'Релеф', satellite: 'Сателит',
+    age: 'Възраст', yrs: 'г.', years: 'години', m: 'м',
+    height: 'Височина', girth: 'Обиколка', diameter: 'Диаметър', trees: 'Брой дървета', notes: 'Особености',
+    decree: 'Обявено с', gazette: 'Държавен вестник', regNo: '№ в регистъра',
+    g_oak: 'Дъбове', g_plane: 'Чинари', g_conifer: 'Иглолистни', g_ash: 'Ясени', g_fruit: 'Плодни и орехоплодни',
+    g_beech: 'Букове', g_poplar: 'Тополи и върби', g_elm: 'Брястове', g_other: 'Други',
+    tokenTitle: 'Необходим е Mapbox токен за достъп',
+    tokenBody: `Поставете публичен токен (започва с <code>pk.</code>) от <a href="${TOKEN_URL}" target="_blank" rel="noopener">вашия Mapbox профил</a>. Той се запазва само в този браузър. Можете да го зададете и в <code>config.js</code>.`,
+    tokenLoad: 'Зареди картата', tokenRejected: 'Mapbox отхвърли този токен. Проверете го и опитайте отново.',
+  },
+};
+const LIST_LIMIT = 100;
+const BULGARIA = [[22.2, 41.15], [28.75, 44.3]];
+const $ = id => document.getElementById(id);
+const el = (tag, props = {}, ...kids) => {
+  const n = Object.assign(document.createElement(tag), props);
+  n.append(...kids);
+  return n;
+};
+
+const state = { q: '', province: '', minAge: 0, groups: new Set(Object.keys(GROUPS)) };
+let trees = [], visible = [], skipped = 0, map, clickPopup;
+
+// ---------- language ----------
+let lang = 'en';
+try { lang = localStorage.getItem('lang') || (navigator.language.startsWith('bg') ? 'bg' : 'en'); } catch {}
+if (!I18N[lang]) lang = 'en';
+const t = (key, vars = {}) => I18N[lang][key].replace(/\{(\w+)\}/g, (_, k) => vars[k]);
+const fmt = n => n.toLocaleString(lang);
+
+function applyLang() {
+  document.documentElement.lang = lang;
+  document.title = t('title');
+  document.querySelectorAll('[data-i18n]').forEach(n => { n.textContent = t(n.dataset.i18n); });
+  document.querySelectorAll('[data-i18n-html]').forEach(n => { n.innerHTML = t(n.dataset.i18nHtml); });
+  document.querySelectorAll('[data-i18n-placeholder]').forEach(n => { n.placeholder = t(n.dataset.i18nPlaceholder); });
+  document.querySelectorAll('#lang button').forEach(b => b.setAttribute('aria-pressed', b.dataset.lang === lang));
+  document.querySelectorAll('.chip span').forEach(n => { n.textContent = t('g_' + n.dataset.group); });
+  $('ageOut').textContent = state.minAge ? t('agePlus', { n: state.minAge }) : t('anyAge');
+  if ($('tokenErr').textContent) $('tokenErr').textContent = t('tokenRejected');
+  if (trees.length) $('foot').textContent = t('skipped', { n: skipped });
+  clickPopup?.remove();
+  map?.setLanguage(lang);
+  applyFilters();
+}
+for (const btn of document.querySelectorAll('#lang button')) {
+  btn.addEventListener('click', () => {
+    lang = btn.dataset.lang;
+    try { localStorage.setItem('lang', lang); } catch {}
+    applyLang();
+  });
+}
+
+// ---------- token ----------
+function getToken() {
+  let saved = '';
+  try { saved = localStorage.getItem('mapboxToken') || ''; } catch {}
+  return (window.MAPBOX_TOKEN || saved).trim();
+}
+function askToken(message = '') {
+  $('tokenErr').textContent = message;
+  $('token').style.display = 'grid';
+  $('tokenInput').focus();
+}
+$('token').querySelector('form').addEventListener('submit', e => {
+  e.preventDefault();
+  try { localStorage.setItem('mapboxToken', $('tokenInput').value.trim()); } catch {}
+  location.reload();
+});
+
+// ---------- data + panel ----------
+async function loadData() {
+  const data = await (await fetch('data/trees.geojson')).json();
+  trees = data.features;
+  for (const f of trees) {
+    const p = f.properties;
+    p._search = [p.species, p.place, p.municipality, p.province].join(' ').toLowerCase();
+  }
+  skipped = data.skipped;
+
+  const counts = {};
+  for (const f of trees) counts[f.properties.group] = (counts[f.properties.group] || 0) + 1;
+  for (const [key, g] of Object.entries(GROUPS)) {
+    const chip = el('button', { className: 'chip', type: 'button' },
+      el('i'), el('span'), el('small', { textContent: counts[key] || 0 }));
+    chip.querySelector('span').dataset.group = key;
+    chip.style.setProperty('--c', g.color);
+    chip.setAttribute('aria-pressed', 'true');
+    chip.addEventListener('click', () => {
+      state.groups.has(key) ? state.groups.delete(key) : state.groups.add(key);
+      chip.setAttribute('aria-pressed', state.groups.has(key));
+      applyFilters();
+    });
+    $('chips').append(chip);
+  }
+
+  const provinces = [...new Set(trees.map(f => f.properties.province).filter(Boolean))]
+    .sort((a, b) => a.localeCompare(b, 'bg'));
+  for (const name of provinces) $('province').append(el('option', { value: name, textContent: name }));
+  return data;
+}
+
+function applyFilters() {
+  const q = state.q.trim().toLowerCase();
+  visible = trees.filter(({ properties: p }) =>
+    state.groups.has(p.group) &&
+    (!state.province || p.province === state.province) &&
+    (!state.minAge || (p.age ?? 0) >= state.minAge) &&
+    (!q || p._search.includes(q)));
+  $('count').replaceChildren(...t('count', { shown: '\u0001', total: fmt(trees.length) }).split('\u0001')
+    .flatMap((part, i) => i ? [el('b', { textContent: fmt(visible.length) }), part] : [part]));
+  if (map?.getLayer('trees')) {
+    map.setFilter('trees', ['in', ['get', 'id'], ['literal', visible.map(f => f.properties.id)]]);
+  }
+  renderList();
+}
+
+function renderList() {
+  const list = $('list');
+  list.replaceChildren();
+  if (!visible.length) {
+    list.append(el('li', { className: 'empty', textContent: t('noMatch') }));
+    return;
+  }
+  const oldest = [...visible].sort((a, b) => (b.properties.age ?? 0) - (a.properties.age ?? 0));
+  for (const f of oldest.slice(0, LIST_LIMIT)) {
+    const p = f.properties;
+    const dot = el('i');
+    dot.style.setProperty('--c', GROUPS[p.group].color);
+    const li = el('li', {}, dot,
+      el('div', {}, el('div', { className: 'sp', textContent: p.species }),
+        el('div', { className: 'pl', textContent: [p.place, p.province].filter(Boolean).join(' · ') })),
+      el('span', { className: 'age', textContent: p.age ? `${p.age} ${t('yrs')}` : '' }));
+    li.addEventListener('click', () => {
+      map.flyTo({ center: f.geometry.coordinates, zoom: Math.max(map.getZoom(), 13), speed: 1.4 });
+      openPopup(f);
+    });
+    list.append(li);
+  }
+  if (visible.length > LIST_LIMIT) {
+    list.append(el('li', { className: 'empty',
+      textContent: t('listLimit', { n: LIST_LIMIT }) }));
+  }
+}
+
+function popupContent(p) {
+  const row = (label, value) => value ? [el('dt', { textContent: label }), el('dd', { textContent: value })] : [];
+  const tag = el('span', { className: 'tag', textContent: t('g_' + p.group) });
+  tag.style.setProperty('--c', GROUPS[p.group].color);
+  const decree = [p.docType, p.docNo && `№ ${p.docNo}`, p.docDate].filter(Boolean).join(' ');
+  return el('div', { className: 'pop' }, tag,
+    el('h2', { textContent: p.species }),
+    el('div', { className: 'where', textContent: [p.place, p.municipality, p.province].filter(Boolean).join(' · ') }),
+    el('dl', {},
+      ...row(t('age'), p.ageText && `${p.ageText} ${t('years')}`),
+      ...row(t('height'), p.heightText && `${p.heightText} ${t('m')}`),
+      ...row(t('girth'), p.girthText && `${p.girthText} ${t('m')}`),
+      ...row(t('diameter'), p.diameterText && `${p.diameterText} ${t('m')}`),
+      ...row(t('trees'), p.count > 1 ? String(p.count) : ''),
+      ...row(t('notes'), p.notes),
+      ...row(t('decree'), decree),
+      ...row(t('gazette'), p.gazette),
+      ...row(t('regNo'), String(p.id))));
+}
+
+function openPopup(f) {
+  clickPopup?.remove();
+  clickPopup = new mapboxgl.Popup({ maxWidth: '320px', offset: 10 })
+    .setLngLat(f.geometry.coordinates)
+    .setDOMContent(popupContent(f.properties))
+    .addTo(map);
+}
+
+function fitToVisible() {
+  if (!visible.length) return;
+  const b = new mapboxgl.LngLatBounds();
+  for (const f of visible) b.extend(f.geometry.coordinates);
+  map.fitBounds(b, { padding: 60, maxZoom: 14, duration: 800 });
+}
+
+// ---------- map ----------
+function addTreeLayer() {
+  if (map.getSource('trees')) return;
+  map.addSource('trees', { type: 'geojson', data: { type: 'FeatureCollection', features: trees } });
+  const age = ['coalesce', ['get', 'age'], 100];
+  const radius = scale => ['interpolate', ['linear'], age,
+    100, 4 * scale, 300, 7 * scale, 600, 11 * scale, 1200, 17 * scale];
+  map.addLayer({
+    id: 'trees',
+    type: 'circle',
+    source: 'trees',
+    layout: { 'circle-sort-key': age },
+    paint: {
+      'circle-color': ['match', ['get', 'group'],
+        ...Object.entries(GROUPS).flatMap(([k, g]) => [k, g.color]), '#7a7a7a'],
+      'circle-radius': ['interpolate', ['linear'], ['zoom'], 6, radius(0.7), 10, radius(1), 15, radius(1.6)],
+      'circle-opacity': 0.82,
+      'circle-stroke-color': '#fff',
+      'circle-stroke-width': ['interpolate', ['linear'], ['zoom'], 6, 0.6, 12, 1.5],
+    },
+  });
+  applyFilters();
+}
+
+function initMap(token) {
+  mapboxgl.accessToken = token;
+  map = new mapboxgl.Map({
+    container: 'map',
+    style: 'mapbox://styles/mapbox/light-v11',
+    bounds: BULGARIA,
+    fitBoundsOptions: { padding: 30 },
+    language: lang,
+  });
+  map.addControl(new mapboxgl.NavigationControl(), 'top-right');
+  map.addControl(new mapboxgl.ScaleControl(), 'bottom-left');
+  map.on('error', e => {
+    if (e.error?.status === 401 || e.error?.status === 403) {
+      try { localStorage.removeItem('mapboxToken'); } catch {}
+      askToken(t('tokenRejected'));
+    }
+  });
+  // Fires on first load and after every basemap switch, which drops custom layers.
+  map.on('style.load', addTreeLayer);
+
+  const tip = new mapboxgl.Popup({ closeButton: false, closeOnClick: false, offset: 10, className: 'tip' });
+  map.on('mousemove', 'trees', e => {
+    map.getCanvas().style.cursor = 'pointer';
+    const top = e.features.at(-1), p = top.properties;
+    tip.setLngLat(top.geometry.coordinates)
+      .setText(p.species + (p.age ? ` · ${p.age} ${t('yrs')}` : '')).addTo(map);
+  });
+  map.on('mouseleave', 'trees', () => { map.getCanvas().style.cursor = ''; tip.remove(); });
+  map.on('click', 'trees', e => {
+    tip.remove();
+    const id = e.features.at(-1).properties.id;
+    openPopup(trees.find(f => f.properties.id === id));
+  });
+
+  for (const btn of document.querySelectorAll('#basemap button')) {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('#basemap button').forEach(b => b.setAttribute('aria-pressed', b === btn));
+      map.setStyle('mapbox://styles/mapbox/' + btn.dataset.style);
+    });
+  }
+}
+
+// ---------- controls ----------
+$('q').addEventListener('input', e => { state.q = e.target.value; applyFilters(); });
+$('province').addEventListener('change', e => { state.province = e.target.value; applyFilters(); });
+$('age').addEventListener('input', e => {
+  state.minAge = +e.target.value;
+  $('ageOut').textContent = state.minAge ? t('agePlus', { n: state.minAge }) : t('anyAge');
+  applyFilters();
+});
+$('fit').addEventListener('click', fitToVisible);
+$('reset').addEventListener('click', () => {
+  Object.assign(state, { q: '', province: '', minAge: 0, groups: new Set(Object.keys(GROUPS)) });
+  $('q').value = ''; $('province').value = ''; $('age').value = 0; $('ageOut').textContent = t('anyAge');
+  document.querySelectorAll('.chip').forEach(c => c.setAttribute('aria-pressed', 'true'));
+  applyFilters();
+  map?.fitBounds(BULGARIA, { padding: 30, duration: 800 });
+});
+
+applyLang();
+loadData().then(() => {
+  applyLang();
+  const token = getToken();
+  token ? initMap(token) : askToken();
+}).catch(err => {
+  $('list').replaceChildren(el('li', { className: 'empty',
+    textContent: t('loadError') }));
+  console.error(err);
+});
+</script>
+</body>
+</html>
